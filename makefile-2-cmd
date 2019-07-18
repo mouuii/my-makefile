@@ -1,0 +1,33 @@
+
+BIN_DIR := $(GOPATH)/bin
+PKGS := $(shell go list ./... | grep -v /vendor | grep -v /test)
+LINTER := $(BIN_DIR)/golangci-lint
+
+.PHONY: test lint help
+help: 
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+test: lint
+	go test $(PKGS)
+
+lint: $(LINTER)
+	golangci-lint run -E goimports -E golint   -E goconst  -E misspell
+
+$(LINTER):
+	go get -u github.com/golangci/golangci-lint/cmd/golangci-lint@v1.17.1
+	golangci-lint run &> /dev/null
+
+
+
+BINARY := mytool
+VERSION ?= vlatest
+PLATFORMS := windows linux darwin
+os = $(word 1, $@)
+.PHONY: $(PLATFORMS)
+$(PLATFORMS):
+	 mkdir -p release
+	 GOOS=$(os) GOARCH=amd64 go build -o release/$(BINARY)-$(VERSION)-$(os)-amd64 ./cmd
+.PHONY: release docker-build
+release: test windows linux darwin
+
+docker-build: release
+	docker build -t chaoyue/otc2.0-payment . 
